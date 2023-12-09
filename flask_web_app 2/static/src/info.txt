@@ -1,0 +1,36 @@
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 181691 entries, 0 to 181690
+Data columns (total 29 columns):
+ #   Column           Non-Null Count   Dtype 
+---  ------           --------------   ----- 
+ 0   eventid          181691 non-null  int64 
+ 1   iyear            181691 non-null  int64 
+ 2   imonth           181691 non-null  int64 
+ 3   iday             181691 non-null  int64 
+ 4   extended         181691 non-null  int64 
+ 5   country          181691 non-null  int64 
+ 6   country_txt      181691 non-null  object
+ 7   region           181691 non-null  int64 
+ 8   region_txt       181691 non-null  object
+ 9   vicinity         181691 non-null  int64 
+ 10  crit1            181691 non-null  int64 
+ 11  crit2            181691 non-null  int64 
+ 12  crit3            181691 non-null  int64 
+ 13  success          181691 non-null  int64 
+ 14  suicide          181691 non-null  int64 
+ 15  attacktype1      181691 non-null  int64 
+ 16  attacktype1_txt  181691 non-null  object
+ 17  targtype1        181691 non-null  int64 
+ 18  targtype1_txt    181691 non-null  object
+ 19  gname            181691 non-null  object
+ 20  individual       181691 non-null  int64 
+ 21  weaptype1        181691 non-null  int64 
+ 22  weaptype1_txt    181691 non-null  object
+ 23  property         181691 non-null  int64 
+ 24  dbsource         181691 non-null  object
+ 25  INT_LOG          181691 non-null  int64 
+ 26  INT_IDEO         181691 non-null  int64 
+ 27  INT_MISC         181691 non-null  int64 
+ 28  INT_ANY          181691 non-null  int64 
+dtypes: int64(22), object(7)
+memory usage: 40.2+ MB

@@ -1,0 +1,385 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style type="text/css">
+    td {
+    padding: 0 25px;
+    text-align: center;
+    }
+
+    th {
+        font-weight: 800;
+        text-align: center;
+    }
+    p {
+        font-size: 18px;
+        margin: 3.5rem 0 1rem 0;
+    }
+
+    .borders {
+        border: 1px solid rgb(154, 151, 151);
+        border-radius: 0.75rem;
+    }
+
+    span {
+        color: rgba(8, 105, 164, 0.808);
+        font-weight: bold;
+    }
+</style>
+
+<div style="width: 100%" >
+    <div style="font-size: 2rem; line-height: 5rem; font-family: 'Quicksand', sans-serif;" class="flex justify-center">Sourcecode & Overview</div>
+
+    <h1 style="font-size: 36px;">1. Dataset</h1>
+    <p class="mb-3">First, let's take a look at the dataset. It is taken from <span><a href="https://www.kaggle.com">kaggle.com</a></span>
+    and is called Global Terrorism Database (GTD). The database is maintained by researchers at the National Consortium for the Study of Terrorism and Responses to Terrorism (START), headquartered at the University of Maryland.</p>
+<pre><code>df_preprocess = pd.read_csv('globalterrorism.csv', encoding='latin-1', low_memory=False)
+df_preprocess.head(6)</code></pre>
+
+    <div style="overflow: scroll;  padding: 1rem;" class="borders mb-2">
+        {% for table in tables %}
+                {{ titles[loop.index] }}
+                {{ table|safe }}
+        {% endfor %}
+    </div>
+    
+    <div class="mt-5">
+        <pre><code>df_preprocess.shape</code></pre>
+        <div class="borders p-2">{{ shape }}</div>
+    </div>
+
+    <div>
+        <h1 style="font-size: 36px; margin-top: 3rem;">2. Data Cleanup</h1>
+        <p>The dataframe consists of 180k+ rows and 135 columns, but definetly requires a data cleanup, since there is a lot of NaN values in it</p>
+        <pre><code>df = df_preprocess.dropna(axis=1)
+df.info()</code></pre>
+        <div class="borders p-2">{% include './graphs/info.html' %}</div>
+    </div>
+
+    <div>
+        <p>Also, we can notice that in several columns contain several parameters that are marked as "Unknown", for example in "Weapon type" or "Target Type"
+            Let's fix it and get rid of them:</p>
+        <pre><code>df = df[df["weaptype1_txt"].str.contains("Unknown") == False] 
+df = df[df["targtype1_txt"].str.contains("Unknown") == False] </code></pre>
+    </div>
+
+
+
+<div class="mt-5">
+    <h1 style="font-size: 36px; margin-top: 3rem;">3. Overview</h1>
+    <p>After cleanup the number of columns has been reduced four times, but now we are ready to work with data. In this project I am using libraries pandas and numpy as a tool for data processing/analysis, 
+        together with matplotlib, plotly and seaborn for data visualization. <br/>
+        First of all, let's make all necessary imports and look at the first most basic parameters: number of all terroristic operations 
+        per year over the whole period (worldwide), and compute the mean and the median:</p>
+
+    <div class="mb-2"><pre><code>import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import plotly.express as px
+import plotly.graph_objects as go
+</code></pre></div>
+
+    <pre><code>x = np.array(np.arange(1970, 2017))
+y = df['iyear'].value_counts().sort_index(ascending=True)
+mean = df['iyear'].value_counts().mean()
+median = df['iyear'].median()
+
+plt.figure(figsize=(20,6))
+
+plt.plot(x, y)
+plt.axhline(y = mean, color = 'lightblue', linestyle = '--', label=f'mean: {round(mean)}') 
+plt.axhline(y = median, color = 'c', linestyle = '--', label=f'median: {round(median)}') 
+
+plt.xlabel("year")  
+plt.ylabel("number of operations") 
+plt.title("Number of terroristic operations per year (worldwide)") 
+plt.legend(bbox_to_anchor = (1.05, 1), loc = 'upper center') 
+
+plt.show()</code></pre>
+</div>
+<div class="borders">
+    <img src="../static/src/icons/plot1.png"/>
+</div>
+
+
+<!-- graph operations per country -->
+<div class="mt-5">
+    <p>Using plotly let's make a similar graphic for each country and compute mean value for them individually:</p>
+    <div class="mb-2">
+        <pre><code>traces = []
+countries = sorted(df['country_txt'].unique())
+
+mean_values = {country: np.mean(df[df['country_txt'] == country]['iyear'].value_counts()) for country in countries}
+
+
+for country in countries:
+    trace = go.Scatter(x=df[df['country_txt'] == country]['iyear'].value_counts().sort_index(ascending=True).index,
+                        y=df[df['country_txt'] == country]['iyear'].value_counts().sort_index(ascending=True).values,
+                        mode='lines',
+                        name=country,
+                        visible=False)  
+    traces.append(trace)
+
+traces[0]['visible'] = True
+
+buttons = []
+for i, country in enumerate(countries):
+    button = dict(method='update',
+                label=country,
+                args=[{'visible': [i == j for j in range(len(countries))]},  
+                        {'annotations': [{
+                            'x': 0.5, 
+                            'y': 1.15, 
+                            'xref': 'paper', 
+                            'yref': 'paper', 
+                            'text': f'Mean ({country}): {mean_values[country]:.2f} attacks per 50 years', 
+                            'showarrow': False, 
+                            'font': {'size': 16}
+                        }],
+                        'yaxis': {'title': 'Number of Attacks'}}])  
+    buttons.append(button)
+    
+
+layout = dict(updatemenus=[dict(active=0, buttons=buttons)], xaxis=dict(range=[1970,2018]))
+fig = go.Figure(data=traces, layout=layout)
+
+fig.show()</code></pre>
+</div>
+</div>
+<div class="borders">
+    {% include './graphs/plot2.html' %}
+</div>
+
+
+<div>
+    <p>Now let's consider countries that undergone the biggest number of terroristic attacks comparing to others: </p>
+    <pre><code>countries_rate = dict()
+for country in sorted(df['country_txt'].unique()):
+    &emsp;countries_rate[country] = df[df['country_txt'] == country].shape[0]
+
+countries_rate_sorted = sorted(countries_rate.items(), key=lambda item: item[1], reverse=True)
+
+countries_rate_sorted[:10]</code></pre>
+    <div class="borders p-2">{% include './graphs/info_country.html' %}</div>
+</div>
+
+
+
+<div>
+    <p>This way, we can observe over which period these numbers have been aquired. </p>
+    <pre><code>N_TOP_COUNTRIES = 7
+
+color_palette = ["#224c6e", "#2a658f", "#3883a9", "#5aaed2", "#8ad5eb", "#b9e5f3", "#d4eff8", "#c8f4fc", "#b9f9fd", "#aafcff"]
+
+traces = []
+countries_rate = dict()
+for country in sorted(df['country_txt'].unique()):
+    countries_rate[country] = df[df['country_txt'] == country].shape[0]
+    
+countries_rate_sorted = sorted(countries_rate.items(), key=lambda item: item[1], reverse=True)
+
+for i, (country, n) in enumerate(countries_rate_sorted[:N_TOP_COUNTRIES]):
+    trace = go.Scatter(x=df[df['country_txt'] == country]['iyear'].value_counts().sort_index(ascending=True).index,
+                        y=df[df['country_txt'] == country]['iyear'].value_counts().sort_index(ascending=True).values,
+                        mode='lines',
+                        name=country, 
+                        line=dict(color=color_palette[i % len(color_palette)]),  # Use a color from the chosen palette
+                        )  
+    traces.append(trace)
+
+layout = go.Layout(width=1000, height=800, paper_bgcolor='rgba(20,0,0,0.2)', plot_bgcolor='rgba(196, 199, 212, 0.2)')
+fig = go.Figure(data=traces, layout=layout)
+    </code></pre>
+    <div class="borders p-2" style="display: flex; justify-content: center;  width: 100%">{% include './graphs/plot3.html' %}</div>
+    <p style="margin-top: 1rem;">So we can clearly see, that starting from 2007 there has been a dramatical increase in numbers of attacks in the Middle East
+        with Iraq, Pakistan and Afganistan being on the top of the list. The amount of attacks reached it's peak in 2014 in Iraq, by aquiring almost 4000 cases per year, which is the 
+        highest rate in the world in recent 50 years. However, after 2014, these numbers started to fall, and India came in third in the list, followed by Phillipines. 
+    </p>
+
+</div>
+
+
+<div>
+    <p>We can also make more comprehensive picture which will illustrate the location of all attacks using properties "longitude" and "latitude" from our dataframe:</p>
+    <pre><code>df['iyear'] = df['iyear'].astype(str)
+fig = px.scatter_geo(df_preprocess, 
+        lat='latitude', 
+        lon='longitude', 
+        hover_name='country_txt', 
+        title='Attacks Around the World', 
+        projection='natural earth',
+        color='iyear',
+        animation_frame='iyear',
+        color_discrete_sequence=["#2a658f"],
+        opacity=0.5,
+        width=1000, height=800)
+
+fig.show()</code></pre>
+    <div class="borders p-2" style="display: flex; justify-content: center;  width: 100%">{% include './graphs/plot4.html' %}</div>
+</div>
+
+
+<div>
+    <h1 style="font-size: 36px; margin-top: 4rem;">4. More detailed overview & Data transformation</h1>
+
+    <p>Now, I want to create a big pie-chart that will illustrate the proportion that each country represents worldwide in numbers of terroristic attacks. In order to do that, I will create a supplementary table which will contain 
+        columns 'country', 'provstate' and 'region'. For every country I want to choose top-5 most terrosrist-active cities to represent them in the chart.
+    </p>
+    <pre><code>top_provstates_per_country = df.groupby('country_txt')['provstate'].value_counts().groupby(level=0).nlargest(5).reset_index(level=1, drop=True).reset_index()
+top_provstates_per_country = pd.merge(top_provstates_per_country, df[['country_txt', 'provstate', 'region_txt', 'success']], on=['country_txt', 'provstate'], how='left')
+
+top_provstates_per_country[-30:-10]</code></pre>
+<div class="borders p-2" style="display: flex; justify-content: center;  width: 100%; margin-bottom: 2rem">{% include './graphs/plot9.html' %}</div>
+</div>
+
+<div>
+    <pre><code>fig = px.sunburst(top_provstates_per_country, 
+                    path=["region_txt", "country_txt", "provstate"], 
+                    values="success", 
+                    color='region_txt',
+                    color_discrete_map={
+                        'Middle East & North Africa': color_palette[0],  
+                        'South Asia': color_palette[1], 
+                        'Sub-Saharan Africa': color_palette[2],  
+                        'South America': color_palette[3],  
+                        'Western Europe': color_palette[4],  
+                        'Central America & Caribbean': color_palette[5],  
+                        'Southeast Asia': color_palette[6],  
+                        'Eastern Europe': color_palette[7],  
+                        'North America': color_palette[8]
+                        },
+                    width=1000, 
+                    height=800,
+                    )
+fig.show()</code></pre>
+    <div class="borders p-2" style="display: flex; justify-content: center;  width: 100%">{% include './graphs/plot5.html' %}</div>
+</div>
+
+
+<div>
+    <p>I want to see, what were the most dramatic attacks by analysing the number of victims. In the dataset, there are two columns with properties
+        "number of wounded" and "number of killed" people. I will create a new table with all necessary data where the rows will be sorted in ascending
+    order.</p>
+    <pre><code>df_v = df_preprocess.sort_values(by=['nkill'], ascending=False)
+df_v[['iyear', 'iday', 'imonth', 'country_txt', 'region_txt', 'nkill', 'nwound' ]].head(10)</code></pre>
+    <div class="borders p-2" style="display: flex; justify-content: center;  width: 100%">{% include './graphs/plot10.html' %}</div>
+        <p style="margin-top: 1rem;">Here, among the most dreadful accidents are the tragedy of 11 september in US (2001), genocide during civil war in Rwanda (1994) and one of the attacks in Iraq (2014)</p>
+</div>
+
+
+<div>
+    <p>Now we can check, is there a correlation between these two parameters. In fact, it feels quite natural, that the more damage is caused by an attack, the more there
+        are victims afterwards.
+    In my new table, I will remove top-4 biggest numbers in order not to bias an overall trend</p>
+    <pre><code>df4 = df_preprocess.sort_values(by=['nkill'], ascending=False)
+df4 = df4[['iyear', 'iday', 'imonth', 'country_txt', 'region_txt', 'nkill', 'nwound' ]].dropna()[4:]
+df4 = df4.sort_values(by=['nwound'], ascending=False)
+df4 = df4[['iyear', 'iday', 'imonth', 'country_txt', 'region_txt', 'nkill', 'nwound' ]][4:]
+
+fig = px.scatter(df4, x="nkill", y="nwound", 
+                color="nwound",
+                trendline="ols") 
+
+fig.update_layout(
+    title="Correlation between Number of Wounded and Number of Kills",
+    yaxis_title="Number of Wounded",
+    xaxis_title="Number of Kills",
+    width=700, height=800
+)
+
+fig.show()</code></pre>
+    <div class="borders p-2" style="display: flex; justify-content: center;  width: 100%">{% include './graphs/plot11.html' %}</div>
+    <div>However, we can clearly see that the correlation between these two parameters is quite low and R<span>&#178;</span>(coefficient of determination), which is equal to ~0.18 only proves this fact.</div>
+</div>
+
+
+
+<div>
+    <h1 style="font-size: 36px; margin-top: 4rem;">5. Hypothesis checking</h1>
+    <p>My hypothesis is the following:
+        the biggest part of all terriristic targets is formed by governments/authorities and people who are involved in politics. But 
+        since the politicians commomly have heavy security guards, the success of attacks must be much lower than in any other category 
+        (private citizens, military, transportation etc)
+    </p>
+    <p style="margin-top: 0;">I created two pie-charts representing the result (damage) of terroristic operation based on target type 
+        and weapon used by terrorists. Here we can observe that the most popular targets are private citizens and military and the most common weapon is a bomb</p>
+    <pre><code>fig = px.sunburst(df, path=['attacktype1_txt'],
+        values='success',
+        title='Success Rate Based on Attack Type',
+        color='attacktype1_txt',
+        color_discrete_sequence=color_palette,
+        width=500, 
+        height=500
+        )
+
+fig2 = px.sunburst(df, path=['weaptype1_txt'],
+        values='success',
+        title='Success Rate Based on Weapon Type',
+        color='weaptype1_txt',
+        color_discrete_sequence=color_palette,
+        width=500, 
+        height=500
+        )</code></pre>
+    <div class="borders p-2" style="display: flex; justify-content: center;  width: 100%">{% include './graphs/plot6.html' %}
+        {% include './graphs/plot7.html' %}
+    </div>
+</div>
+
+
+<div>
+    <p>Here I am creating a bar chart in order to check the difference between the number of successful operations (that had not been prevented or neutralized) 
+        and total operations:</p>
+    <pre><code>targets_rate = dict()
+targets_rate_success = dict()
+for target in sorted(df['targtype1_txt'].unique()):
+    targets_rate[target] = df[df['targtype1_txt'] == target].shape[0]
+    targets_rate_success[target] = df[(df['targtype1_txt'] == target) & (df['success'] == 1)].shape[0]
+
+targets_rate_sorted = sorted(targets_rate.items(), key=lambda item: item[1], reverse=True)
+targets_rate_success_sorted = sorted(targets_rate_success.items(), key=lambda item: item[1], reverse=True)
+
+success = list(dict(targets_rate_success_sorted).values())[:10]
+total = list(dict(targets_rate_sorted).values())[:10]
+
+fig = px.bar(df2, 
+                x=list(dict(targets_rate_sorted).keys())[:10], 
+                y=[success, total], 
+                barmode="group", 
+                color_discrete_sequence=["#ADD8E6", "#191970"],
+                title="Success Rate Based on Target Type")
+
+fig.show()</code></pre>
+    <div class="borders p-2" style="display: flex; justify-content: center;  width: 100%">{% include './graphs/plot12.html' %}</div>
+    <p style="margin-top: 0;">It is obvious, that private citizens serve as terrorists' targets more than twice as often as governments and polititians</p>
+</div>
+
+<div>
+    <p>Here, I created a barchart to check what is the most commonly used weapon for each group of targets:</p>
+    <pre><code>df2 = df[['weaptype1_txt', 'targtype1_txt', 'success']].copy()
+df2 = df2[df2["weaptype1_txt"].str.contains("Unknown") == False] 
+df2['num'] = 1
+
+fig = px.histogram(df2, x="targtype1_txt", 
+                y=["num"], 
+                color='weaptype1_txt', 
+                color_discrete_sequence=color_palette,
+                title="Success Rate Based on Target Type",
+                width=1300, 
+                height=800)
+
+fig.show()</code></pre>
+    <div class="borders p-2" style="display: flex; justify-content: center;  width: 100%">{% include './graphs/plot8.html' %}
+    </div>
+
+    <p>Overall, my hypothesis was not proved, but the analysys of this dataset helped to reveal some interesitng 
+        statistics and trends.
+    </p>
+    <p>The BI for this project is available on my <span><a href="https://gtbanalytics.streamlit.app">Sreamlit App</a></span>.
+    </p>
+</div>
+
+</div>
+
+{% endblock %}
+

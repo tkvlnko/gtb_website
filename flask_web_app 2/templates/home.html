@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    span {
+        font-weight: 800;
+        color: rgba(0, 123, 255, 0.903);
+    }
+    button#scrollButton {
+        background-color: rgba(33, 121, 193, 0.389);
+        padding: 10px;
+        border-radius: 5px;
+        cursor: pointer;
+        z-index: 999;
+        color: white;
+        transition: 0.7s;
+    }
+    
+    button#scrollButton:hover {
+        background-color: rgb(10, 50, 83);
+    }
+    .borders {
+        border: 1px solid #ccc;
+        border-radius: 10px;
+    }
+
+    td {
+        padding: 0 25px;
+        text-align: center;
+        }
+    
+    th {
+        font-weight: 800;
+        text-align: center;
+    }
+
+    .hov:hover {
+        background-color: rgba(33, 121, 193, 0.389);
+        transition: 0.4s;
+    }
+
+</style>
+<section>
+    <div class="flex" style="width: 100%;">
+        <div style="display:flex; flex-direction:column;
+                    justify-content:center;
+        " class=" align-center justify-center mr-3 mb-2">
+            <h1 style="font-size: 4.5rem;
+            line-height: 5rem; font-family: 'Quicksand', sans-serif;"
+            class="text-gray-500 my-5">Global Terrorism <br /> Database Analytics</h1>
+            <p class="text-gray-500 mb-3" style="font-size: 20px; font-family: 'Quicksand', sans-serif;"> Python Project<br/> Made by Taya Ibragimova, 232-1</p>
+            <div>
+                <a href="https://www.kaggle.com/datasets/START-UMD/gtd">
+                    <button type="button" class="btn btn-secondary text-gray-500">Explore dataset</button>
+                </a>
+                <a href="https://gtbanalytics.streamlit.app">
+                    <button type="button" class="btn btn-secondary text-gray-500">View Statistics</button>
+                </a>
+            </div>
+        </div>
+    
+        <div style="display: flex;flex: 1; width: 100%;">
+            <img src="../static/src/icons/preview.svg" />
+        </div>  
+    </div>
+    
+    <div class="flex justify-center flex-row" style="align-items: center;">
+        <a href="../static/src/Python_project_global_terrorism.ipynb" >
+            <div class="hov" style="border-radius: 10px;"><img src="../static/src/icons/github_icon.svg" style="height: 35px;"></div>
+        </a>
+
+        <a href="../static/src/Python_project_global_terrorism.ipynb">
+            <div class="hov" style="border-radius: 10px;"><img src="../static/src/icons/download_icon.svg" style="height: 35px;"></div>
+        </a>
+        
+    </div>
+    <div class="flex justify-center mt-5">
+        <button id="scrollButton" onclick="scrollToNextSection()">
+            Click here
+        </button>
+    </div>
+
+    
+</section>
+
+
+<section>
+    <div class="display: flex; justify-content: center; align-items: center; padding: 2rem">
+        <div style="margin: 10rem; 
+                    display: flex; justify-content: center;
+                    align-items: center; 
+                    flex-direction:column;
+                    border: 1px solid #ccc;
+                    border-radius: 10px;
+                    padding: 3rem;
+                    color: #7b7b7b;">
+            <p style="font-family: 'Quicksand', sans-serif; color: #262626; font-size: 18px">Check the number of terroristic attacks:</p>
+            <form method="POST">
+                <input style="border: 1px solid #ccc; padding: 12px 20px; margin: 1rem 0.5rem;" type="text" name="country" id="country" placeholder="Country"/>
+                <input style="border: 1px solid #ccc; padding: 12px 20px; margin: 1rem 0.5rem;" type="text" name="year" id="year" placeholder="Year (1970-2017)"/>
+                <br />
+                <div align="center">
+                    <button type="submit" class="btn btn-dark" style="color:#ccc; margin-bottom: 2rem">Send</button>
+                </div>
+            </form>
+            <p style="color: #7b7b7b;">Number of terroristic attacks in <span>{{ country }}</span> in {{ year }}: <span>{{ result }}</span></p>
+            <p style="color: #7b7b7b; margin-top: 2rem">Top-3 countries </span> in {{ year }}: <span></p>
+            <div class="borders mt-3" style="background-color: #cccccc62; padding: 0.5rem 2rem ">{% include './graphs/top3.html' %}</div>
+        </div>
+    </div>
+</section>
+
+<script>
+    function scrollToNextSection() {
+    const currentSection = document.querySelector('section:not([style*="display: none;"])');
+    const nextSection = currentSection.nextElementSibling;
+    if (nextSection) {
+        nextSection.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    }
+</script>
+
+
+
+{% endblock %}
