@@ -7,8 +7,6 @@ from matplotlib.figure import Figure
 import plotly.graph_objects as go
 import os 
 
-
-# import seaborn as sns
 import plotly.express as px
 import plotly.graph_objects as go
 app = Flask(__name__)
@@ -16,23 +14,24 @@ app = Flask(__name__)
 matplotlib.use('Agg')
 
 
-def op_pyear_worldwide(df): 
-    x = np.array(np.arange(1970, 2017))
+def op_pyear_worldwide(df):
+    x = np.arange(1970, 2017)
     y = df['iyear'].value_counts().sort_index(ascending=True)
     mean = df['iyear'].value_counts().mean()
     median = df['iyear'].median()
 
-    plt.figure(figsize=(20,6))
+    fig, ax = plt.subplots(figsize=(20,6))
 
-    plt.plot(x, y)
-    plt.axhline(y = mean, color = 'lightblue', linestyle = '--', label=f'mean: {round(mean)}') 
-    plt.axhline(y = median, color = 'c', linestyle = '--', label=f'median: {round(median)}') 
+    ax.plot(x, y)
+    ax.axhline(y=mean, color='lightblue', linestyle='--', label=f'mean: {round(mean)}')
+    ax.axhline(y=median, color='c', linestyle='--', label=f'median: {round(median)}')
 
-    plt.xlabel("year")  
-    plt.ylabel("number of operations") 
-    plt.title("Number of terroristic operations per year (worldwide)") 
-    plt.legend(bbox_to_anchor = (1.05, 1), loc = 'upper center') 
-    return plt 
+    ax.set_xlabel("year")
+    ax.set_ylabel("number of operations")
+    ax.set_title("number of terroristic operations per year (worldwide)")
+    ax.legend(bbox_to_anchor=(1.05, 1), loc='upper center')
+
+    return fig
 
 def table_prpc(df):
     top_provstates_per_country = df.groupby('country_txt')['provstate'].value_counts().groupby(level=0).nlargest(5).reset_index(level=1, drop=True).reset_index()
@@ -268,18 +267,32 @@ def get_nattacks_by_country(df, country, year):
     top3 = df2.head(3)
 
     req = df2.loc[df2["country_txt"] == country]
-    if country not in top3.loc[:, 'country_txt'].tolist():
-        top3 = pd.concat([top3, req], ignore_index=False)
+
+    if top3.empty:
+        top3 = req.copy()
+    elif country not in top3.loc[:, 'country_txt'].tolist():
+        top3 = pd.concat([top3, req], ignore_index=True)
 
     top3.index += 1   
     result = req.iloc[0]['operations']
     return result, top3.loc[:, ['operations', 'country_txt']].rename(columns={"country_txt": "country"})
 
+def read_csv_optimized(file_path):
+    dtypes = {'eventid': 'int32', 'iyear': 'int16', 'imonth': 'int8', 'iday': 'int8', 'extended': 'int8', 'country': 'int16', 'region': 'int8', 'latitude': 'float32', 'longitude': 'float32', 'success': 'int8'}
+    chunk_size = 1000
+    chunks = pd.read_csv(file_path, encoding='latin-1', low_memory=False, dtype=dtypes, chunksize=chunk_size)
+    df = pd.concat(chunks)
+    return df
+
+def preprocess_data(df):
+    df.drop(['summary', 'addnotes', 'scite1', 'scite2', 'scite3', 'target1', 'motive'], axis=1, inplace=True)
+    df = df.head(6)
+    return df
 
 @app.route('/', methods=['GET', 'POST'])
 def homepage():
-    df = pd.read_csv('./data/globalterrorism.csv', encoding='latin-1', low_memory=False)
-    result, country, year = '--', '--', '-- '
+    df = read_csv_optimized('./data/globalterrorism.csv')
+    result, country, year = '--', '--', '--'
 
     if request.method == 'POST':
         country = request.form.get('country')
@@ -287,107 +300,49 @@ def homepage():
         result, top3 = get_nattacks_by_country(df, country, year)
         top3.to_html('./templates/graphs/top3.html')
 
-
     return render_template('home.html', result=result, country=country, year=year)
 
 
 @app.route('/sourcecode', methods=['POST', 'GET'])
 def sourcecode():
-    df_preprocess = pd.read_csv('./data/globalterrorism.csv', encoding='latin-1', low_memory=False)
-    df2 = pd.read_csv('./data/globalterrorism.csv', encoding='latin-1', low_memory=False).drop(['summary', 'addnotes', 'scite1', 'scite2', 'scite3', 'target1', 'motive'], axis=1).head(6)
-    df = pd.read_csv('./data/globalterrorism.csv', encoding='latin-1', low_memory=False).dropna(axis=1)
+    df = read_csv_optimized('./data/globalterrorism.csv')
+    df = preprocess_data(df)
+    shape = df.shape
 
-    shape = df_preprocess.shape
-    
     # info 
     df_info(df)
 
     # info operations per country
     op_by_country_list(df)
 
-    if os.path.isfile("./templates/graphs/plot1.png"):
-        pass
-    else:
-        plot1 = op_pyear_worldwide(df)
-        plot1.savefig('./templates/graphs/plot1.png')
+    plots = [
+        (op_pyear_worldwide, 'plot1.png'),
+        (op_by_country, 'plot2.html'),
+        (top_n_countries, 'plot3.html'),
+        (locations, 'plot4.html'),
+        (big_sunburst, 'plot5.html'),
+        (success_by_target_pie, 'plot6.html'),
+        (success_by_weap_pie, 'plot7.html'),
+        (success_on_target, 'plot8.html'),
+        (table_prpc, 'plot9.html'),
+        (n_victims, 'plot10.html'),
+        (correlation, 'plot11.html'),
+        (success_vs_total, 'plot12.html')
+    ]
 
+    for plotfunc, filename in plots:
+        if not os.path.isfile(f"./templates/graphs/{filename}"):
+            if filename.endswith('.png'):
+                plot = plotfunc(df)
+                plot.savefig(f'./templates/graphs/{filename}')
+            else:
+                plot = plotfunc(df)
+                plot.writehtml(f'./templates/graphs/{filename}')
 
-    if os.path.isfile("./templates/graphs/plot2.html"):
-        pass
-    else:
-        plot2 = op_by_country(df)
-        plot2.write_html('./templates/graphs/plot2.html')
-
-    
-    if os.path.isfile("./templates/graphs/plot3.html"):
-        pass
-    else:
-        plot3 = top_n_countries(df)
-        plot3.write_html('./templates/graphs/plot3.html')
-
-
-    if os.path.isfile('./templates/graphs/plot4.html'):
-        pass
-    else:
-        plot4 = locations(df_preprocess)
-        plot4.write_html('./templates/graphs/plot4.html')
-
-    
-    if os.path.isfile('./templates/graphs/plot5.html'):
-        pass
-    else:
-        plot5 = big_sunburst(df_preprocess)
-        plot5.write_html('./templates/graphs/plot5.html')
-
-    if os.path.isfile('./templates/graphs/plot6.html'):
-        pass
-    else:
-        plot6 = success_by_target_pie(df)
-        plot6.write_html('./templates/graphs/plot6.html')
-
-    if os.path.isfile('./templates/graphs/plot7.html'):
-        pass
-    else:
-        plot7 = success_by_weap_pie(df)
-        plot7.write_html('./templates/graphs/plot7.html')
-
-    if os.path.isfile('./templates/graphs/plot8.html'):
-        pass
-    else:
-        plot8 = success_on_target(df)
-        plot8.write_html('./templates/graphs/plot8.html')
-
-    if os.path.isfile('./templates/graphs/plot9.html'):
-        pass
-    else:
-        plot9 = table_prpc(df_preprocess)
-        open("./templates/graphs/plot9.html", "w").write(plot9)
-
-    if os.path.isfile('./templates/graphs/plot10.html'):
-        pass
-    else:
-        plot10 = n_victims(df_preprocess)
-        open("./templates/graphs/plot10.html", "w").write(plot10)
-
-    if os.path.isfile('./templates/graphs/plot11.html'):
-        pass
-    else:
-        plot11 = correlation(df_preprocess)
-        plot11.write_html('./templates/graphs/plot11.html')
-
-    if os.path.isfile('./templates/graphs/plot12.html'):
-        pass
-    else:
-        plot12 = success_vs_total(df_preprocess)
-        plot12.write_html('./templates/graphs/plot12.html')
-
-
-
-
-    return render_template('sourcecode.html', tables=[df2.to_html(classes='data')], 
-                            titles=df2.columns.values,
+    return render_template('sourcecode.html', tables=[df.to_html(classes='data')], 
+                            titles=df.columns.values,
                             shape=shape,
                             )
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0')
